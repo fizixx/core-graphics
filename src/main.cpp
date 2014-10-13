@@ -6,10 +6,16 @@
 #include "GL/glew.h"
 #include "SFML/OpenGL.hpp"
 
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+
 const char *kVertexShader = "#version 400\n"
-                            "in vec3 vp;\n"
+                            "in vec3 in_Position;\n"
+                            "uniform mat4 projectionMatrix;\n"
+                            "uniform mat4 viewMatrix;\n"
+                            "uniform mat4 modelMatrix;\n"
                             "void main() {\n"
-                            "  gl_Position = vec4(vp, 1.0);\n"
+                            "  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(in_Position, 1.0);\n"
                             "}\n";
 
 const char *kFragmentShader = "#version 400\n"
@@ -44,6 +50,41 @@ int main() {
   glLinkProgram(programId);
 
   glUseProgram(programId);
+
+  // Set up the matrices.
+
+  glm::mat4 projectionMatrix; // Store the projection matrix
+  glm::mat4 viewMatrix;       // Store the view matrix
+  glm::mat4 modelMatrix;      // Store the model matrix
+
+  // Create our perspective projection matrix.
+  projectionMatrix =
+      glm::perspective(60.0f, (float)800 / (float)600, 0.1f, 100.f);
+
+  // Create our view matrix which will translate us back 5 units.
+  viewMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.f));
+  // Create our model matrix which will halve the size of our model.
+  modelMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+
+  // Bind the values to the program.
+
+  // Get the location of our projection matrix in the shader.
+  int projectionMatrixLocation =
+      glGetUniformLocation(programId, "projectionMatrix");
+  // Get the location of our view matrix in the shader.
+  int viewMatrixLocation = glGetUniformLocation(programId, "viewMatrix");
+  // Get the location of our model matrix in the shader.
+  int modelMatrixLocation = glGetUniformLocation(programId, "modelMatrix");
+
+  // Send our projection matrix to the shader.
+  glUniformMatrix4fv(projectionMatrixLocation, 1, GL_FALSE,
+                     &projectionMatrix[0][0]);
+  // Send our view matrix to the shader
+  glUniformMatrix4fv(viewMatrixLocation, 1, GL_FALSE, &viewMatrix[0][0]);
+  // Send our model matrix to the shader
+  glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &modelMatrix[0][0]);
+
+  // Set up the geometry.
 
   float points[] = {0.0f, 0.5f, 0.0f, 0.5f, -0.5f, 0.0f, -0.5f, -0.5f, 0.0f};
 
