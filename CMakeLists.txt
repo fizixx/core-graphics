@@ -14,7 +14,7 @@ include_directories("${SFML_ROOT_DIR}/extlibs/headers")
 add_subdirectory("third_party/glm" "glm")
 include_directories("${glm_SOURCE_DIR}")
 
-add_executable("core-graphics" "src/main.cpp")
+add_executable("core-graphics" WIN32 MACOSX_BUNDLE "src/main.cpp")
 target_link_libraries("core-graphics"
   "sfml-system"
   "sfml-window"

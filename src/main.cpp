@@ -9,25 +9,35 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 
-const char *kVertexShader = "#version 400\n"
-                            "in vec3 in_Position;\n"
-                            "uniform mat4 projectionMatrix;\n"
-                            "uniform mat4 viewMatrix;\n"
-                            "uniform mat4 modelMatrix;\n"
-                            "void main() {\n"
-                            "  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(in_Position, 1.0);\n"
-                            "}\n";
+const char *kVertexShader =
+    "#version 400\n"
+    "in vec3 in_Position;\n"
+    "uniform mat4 projectionMatrix;\n"
+    "uniform mat4 viewMatrix;\n"
+    "uniform mat4 modelMatrix;\n"
+    "void main() {\n"
+    "  gl_Position = projectionMatrix * viewMatrix * modelMatrix * "
+    "vec4(in_Position, 1.0);\n"
+    "}\n";
 
-const char *kFragmentShader = "#version 400\n"
-                              "out vec4 frag_colour;\n"
-                              "void main () {\n"
-                              "  frag_colour = vec4(1.0, 1.0, 1.0, 1.0);\n"
-                              "}\n";
+const char *kFragmentShader =
+    "#version 400\n"
+    "out vec4 frag_colour;\n"
+    "void main () {\n"
+    "  frag_colour = vec4(1.0, 1.0, 1.0, 1.0);\n"
+    "}\n";
 
 int main() {
-  sf::Window window(sf::VideoMode(800, 600), "Core Graphics");
+  sf::ContextSettings settings(0, 0, 0, 3, 0);
+  sf::Window window(sf::VideoMode(800, 600), "Core Graphics",
+                    sf::Style::Default, settings);
 
-  glewInit();
+  GLenum err = glewInit();
+  if (err != GLEW_OK) {
+    return 1;
+  }
+
+  fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
 
   GLuint vertexShaderId = 0;
   GLuint fragmentShaderId = 0;
@@ -53,9 +63,9 @@ int main() {
 
   // Set up the matrices.
 
-  glm::mat4 projectionMatrix; // Store the projection matrix
-  glm::mat4 viewMatrix;       // Store the view matrix
-  glm::mat4 modelMatrix;      // Store the model matrix
+  glm::mat4 projectionMatrix;  // Store the projection matrix
+  glm::mat4 viewMatrix;        // Store the view matrix
+  glm::mat4 modelMatrix;       // Store the model matrix
 
   // Create our perspective projection matrix.
   projectionMatrix =
