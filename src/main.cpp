@@ -9,10 +9,7 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "SFML/Window/Event.hpp"
 #include "SFML/Window/Window.hpp"
-#include "SFML/Graphics/Shader.hpp"
 #include "SFML/Graphics/Texture.hpp"
-#include "SFML/Graphics/Transform.hpp"
-#include "SFML/Graphics/View.hpp"
 
 enum {
   DISPLAY_WIDTH = 800,
@@ -26,8 +23,7 @@ const char *kVertexShader =
     "layout(location = 1) in vec2 in_TexCoord;\n"
     "\n"
     "uniform mat4 projectionMatrix;\n"
-    "uniform mat4 translationMatrix;\n"
-    "uniform mat4 scaleMatrix;\n"
+    "uniform mat4 modelMatrix;\n"
     "\n"
     "out vec4 VertexColor;\n"
     "out vec2 TexCoord;\n"
@@ -35,7 +31,7 @@ const char *kVertexShader =
     "void main() {\n"
     "  TexCoord = in_TexCoord;\n"
     "  gl_Position = \n"
-    "      projectionMatrix * translationMatrix * scaleMatrix * \n"
+    "      projectionMatrix * modelMatrix * \n"
     "      vec4(in_Position, 0.0, 1.0);\n"
     "}\n";
 
@@ -136,30 +132,29 @@ int main(int argc, char *argv[]) {
 
   // Set up the matrices.
 
-  glm::mat4 projectionMatrix;   // Store the projection matrix.
-  glm::mat4 translationMatrix;  // Store the translation matrix.
-  glm::mat4 scaleMatrix;        // Store the view matrix.
 
   // Create our perspective projection matrix.
-  projectionMatrix =
+  glm::mat4 projectionMatrix =
       glm::ortho(0.f, static_cast<float>(DISPLAY_WIDTH),
                  static_cast<float>(DISPLAY_HEIGHT), 0.f, -1.f, 1.f);
-  translationMatrix =
-      glm::translate(glm::mat4(), glm::vec3(10.0f, 20.0f, 0.0f));
-  scaleMatrix = glm::scale(glm::mat4(), glm::vec3(200.0f, 100.0f, 1.0f));
 
   GLint projectionMatrixLocation =
       glGetUniformLocation(programId, "projectionMatrix");
   glUniformMatrix4fv(projectionMatrixLocation, 1, GL_FALSE,
                      &projectionMatrix[0][0]);
 
-  GLint translationMatrixId =
-      glGetUniformLocation(programId, "translationMatrix");
-  glUniformMatrix4fv(translationMatrixId, 1, GL_FALSE,
-                     &translationMatrix[0][0]);
-
-  GLint scaleMatrixId = glGetUniformLocation(programId, "scaleMatrix");
-  glUniformMatrix4fv(scaleMatrixId, 1, GL_FALSE, &scaleMatrix[0][0]);
+  int x = 15;
+  int y = 20;
+  int width = 256;
+  int height = 192;
+  GLfloat modelMatrix[16] = {
+      static_cast<float>(width), 0.0f,                       0.0f, 0.0f,
+      0.0f,                      static_cast<float>(height), 0.0f, 0.0f,
+      0.0f,                      0.0f,                       1.0f, 0.0f,
+      static_cast<float>(x),     static_cast<float>(y),      0.0f, 1.0f,
+  };
+  GLint modelMatrixId = glGetUniformLocation(programId, "modelMatrix");
+  glUniformMatrix4fv(modelMatrixId, 1, GL_FALSE, modelMatrix);
 
   // Set up the geometry.
 
