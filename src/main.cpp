@@ -61,7 +61,7 @@ void Log(std::string msg) {
 GLuint CreateShader(GLenum type, std::string source) {
   GLuint id = glCreateShader(type);
 
-  const GLchar* s = static_cast<const GLchar*>(source.c_str());
+  const GLchar *s = static_cast<const GLchar *>(source.c_str());
   GLint length = static_cast<GLint>(source.length());
   glShaderSource(id, 1, &s, &length);
 
@@ -69,7 +69,7 @@ GLuint CreateShader(GLenum type, std::string source) {
 }
 
 GLuint CreateProgram(std::string vertexShaderSource,
-                   std::string fragmentShaderSource) {
+                     std::string fragmentShaderSource) {
   GLuint vertexShaderId =
       CreateShader(GL_VERTEX_SHADER, std::move(vertexShaderSource));
 
@@ -134,15 +134,16 @@ int main(int argc, char *argv[]) {
 
   // Set up the matrices.
 
-  glm::mat4 projectionMatrix;  // Store the projection matrix.
-  glm::mat4 translationMatrix;   // Store the translation matrix.
+  glm::mat4 projectionMatrix;   // Store the projection matrix.
+  glm::mat4 translationMatrix;  // Store the translation matrix.
   glm::mat4 scaleMatrix;        // Store the view matrix.
 
   // Create our perspective projection matrix.
   projectionMatrix =
       glm::ortho(0.f, static_cast<float>(DISPLAY_WIDTH),
                  static_cast<float>(DISPLAY_HEIGHT), 0.f, -1.f, 1.f);
-  translationMatrix = glm::translate(glm::mat4(), glm::vec3(10.0f, 20.0f, 0.0f));
+  translationMatrix =
+      glm::translate(glm::mat4(), glm::vec3(10.0f, 20.0f, 0.0f));
   scaleMatrix = glm::scale(glm::mat4(), glm::vec3(200.0f, 100.0f, 1.0f));
 
   GLint projectionMatrixLocation =
@@ -150,8 +151,10 @@ int main(int argc, char *argv[]) {
   glUniformMatrix4fv(projectionMatrixLocation, 1, GL_FALSE,
                      &projectionMatrix[0][0]);
 
-  GLint translationMatrixId = glGetUniformLocation(programId, "translationMatrix");
-  glUniformMatrix4fv(translationMatrixId, 1, GL_FALSE, &translationMatrix[0][0]);
+  GLint translationMatrixId =
+      glGetUniformLocation(programId, "translationMatrix");
+  glUniformMatrix4fv(translationMatrixId, 1, GL_FALSE,
+                     &translationMatrix[0][0]);
 
   GLint scaleMatrixId = glGetUniformLocation(programId, "scaleMatrix");
   glUniformMatrix4fv(scaleMatrixId, 1, GL_FALSE, &scaleMatrix[0][0]);
@@ -159,16 +162,10 @@ int main(int argc, char *argv[]) {
   // Set up the geometry.
 
   GLfloat points[] = {
-    0.0f, 0.0f,
-    1.0f, 0.0f,
-    1.0f, 1.0f,
-    0.0f, 1.0f,
+      0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f,
   };
   GLfloat texCoords[] = {
-    0.0f, 0.0f,
-    1.0f, 0.0f,
-    1.0f, 1.0f,
-    0.0f, 1.0f,
+      0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f,
   };
 
   // Create the vertex array.
@@ -190,9 +187,6 @@ int main(int argc, char *argv[]) {
   glBufferData(GL_ARRAY_BUFFER, sizeof(texCoords), texCoords, GL_STATIC_DRAW);
   glEnableVertexAttribArray(1);
   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, NULL);
-
-  // Delete the vertex buffers. (The vertex array still has reference to it)
-  //glDeleteBuffers(2, vboId);
 
   while (window.isOpen()) {
     sf::Event evt;
