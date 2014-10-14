@@ -16,8 +16,9 @@ include_directories("${glm_SOURCE_DIR}")
 
 add_executable("core-graphics" WIN32 MACOSX_BUNDLE "src/main.cpp")
 target_link_libraries("core-graphics"
-  "sfml-system"
-  "sfml-window"
   "sfml-graphics"
+  "sfml-window"
+  "sfml-system"
+  "sfml-main"
   "${SFML_ROOT_DIR}/extlibs/libs-msvc/x64/glew.lib"
 )

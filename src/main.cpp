@@ -9,55 +9,104 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 
+enum {
+  DISPLAY_WIDTH = 800,
+  DISPLAY_HEIGHT = 600,
+};
+
 const char *kVertexShader =
     "#version 400\n"
-    "in vec3 in_Position;\n"
+    "\n"
+    "layout(location = 0) in vec3 in_Position;\n"
+    "layout(location = 1) in vec3 in_Color;\n"
+    "\n"
     "uniform mat4 projectionMatrix;\n"
     "uniform mat4 viewMatrix;\n"
     "uniform mat4 modelMatrix;\n"
+    "\n"
+    "out vec4 VertexColor;\n"
+    "\n"
     "void main() {\n"
-    "  gl_Position = projectionMatrix * viewMatrix * modelMatrix * "
-    "vec4(in_Position, 1.0);\n"
+    "  VertexColor = vec4(in_Color, 1.0);\n"
+    "  gl_Position = \n"
+    "      projectionMatrix * \n"
+    "      viewMatrix * \n"
+    "      modelMatrix * \n"
+    "      vec4(in_Position, 1.0);\n"
     "}\n";
 
 const char *kFragmentShader =
     "#version 400\n"
+    "in vec4 VertexColor;\n"
     "out vec4 frag_colour;\n"
     "void main () {\n"
-    "  frag_colour = vec4(1.0, 1.0, 1.0, 1.0);\n"
+    "  frag_colour = VertexColor;\n"
     "}\n";
 
-int main() {
-  sf::ContextSettings settings(0, 0, 0, 3, 0);
-  sf::Window window(sf::VideoMode(800, 600), "Core Graphics",
-                    sf::Style::Default, settings);
+void Log(std::string msg) {
+  OutputDebugStringA(msg.c_str());
+  OutputDebugStringA("\n");
+}
+
+GLuint CreateShader(GLenum type, std::string source) {
+  GLuint id = glCreateShader(type);
+
+  const GLchar* s = static_cast<const GLchar*>(source.c_str());
+  GLint length = static_cast<GLint>(source.length());
+  glShaderSource(id, 1, &s, &length);
+
+  return id;
+}
+
+GLuint CreateProgram(std::string vertexShaderSource,
+                   std::string fragmentShaderSource) {
+  GLuint vertexShaderId =
+      CreateShader(GL_VERTEX_SHADER, std::move(vertexShaderSource));
+
+  GLuint fragmentShaderId =
+      CreateShader(GL_FRAGMENT_SHADER, std::move(fragmentShaderSource));
+
+  // Create and compile the program.
+  GLuint programId = glCreateProgram();
+  glAttachShader(programId, vertexShaderId);
+  glAttachShader(programId, fragmentShaderId);
+  glLinkProgram(programId);
+
+  // Print out some information about the program.
+  std::string buffer(1024, 0);
+  GLsizei outLength = 0;
+  glGetProgramInfoLog(programId, static_cast<GLsizei>(buffer.size()),
+                      &outLength, (GLchar *)buffer.c_str());
+  buffer[outLength] = 0;
+
+  if (!buffer.empty())
+    Log(std::move(buffer));
+
+  return programId;
+}
+
+int main(int argc, char *argv[]) {
+  sf::ContextSettings settings(0, 0, 0, 4, 2);
+  sf::Window window(sf::VideoMode(DISPLAY_WIDTH, DISPLAY_HEIGHT),
+                    "Core Graphics", sf::Style::Default, settings);
+
+  Log(std::move(std::string("OpenGL: ").append(
+      reinterpret_cast<const char *>(glGetString(GL_VERSION)))));
 
   GLenum err = glewInit();
   if (err != GLEW_OK) {
     return 1;
   }
 
-  fprintf(stdout, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
+  Log(std::move(std::string("GLEW: ").append(
+      reinterpret_cast<const char *>(glewGetString(GLEW_VERSION)))));
 
-  GLuint vertexShaderId = 0;
-  GLuint fragmentShaderId = 0;
-  GLuint programId = 0;
-
-  // Load the vertex shader.
-  vertexShaderId = glCreateShader(GL_VERTEX_SHADER);
-  glShaderSource(vertexShaderId, 1, &kVertexShader, NULL);
-  glCompileShader(vertexShaderId);
-
-  // Load the fragment shader.
-  fragmentShaderId = glCreateShader(GL_FRAGMENT_SHADER);
-  glShaderSource(fragmentShaderId, 1, &kFragmentShader, NULL);
-  glCompileShader(fragmentShaderId);
-
-  // Create the program.
-  programId = glCreateProgram();
-  glAttachShader(programId, fragmentShaderId);
-  glAttachShader(programId, vertexShaderId);
-  glLinkProgram(programId);
+  // Create the program we're going to use for rendering.
+  GLuint programId = CreateProgram(kVertexShader, kFragmentShader);
+  if (!programId) {
+    Log("Could not create program.");
+    return 1;
+  }
 
   glUseProgram(programId);
 
@@ -68,8 +117,10 @@ int main() {
   glm::mat4 modelMatrix;       // Store the model matrix
 
   // Create our perspective projection matrix.
-  projectionMatrix =
-      glm::perspective(60.0f, (float)800 / (float)600, 0.1f, 100.f);
+  projectionMatrix = glm::perspective(
+      60.0f,
+      static_cast<float>(DISPLAY_WIDTH) / static_cast<float>(DISPLAY_HEIGHT),
+      0.1f, 100.f);
 
   // Create our view matrix which will translate us back 5 units.
   viewMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.f));
@@ -96,19 +147,33 @@ int main() {
 
   // Set up the geometry.
 
-  float points[] = {0.0f, 0.5f, 0.0f, 0.5f, -0.5f, 0.0f, -0.5f, -0.5f, 0.0f};
+  GLfloat points[] = {0.0f, 0.5f, 0.0f, 0.5f, -0.5f, 0.0f, -0.5f, -0.5f, 0.0f};
+  GLubyte colors[] = {
+      255, 0, 0, 255, 0, 0, 255, 0, 0,
+  };
 
-  GLuint vboId = 0;
-  glGenBuffers(1, &vboId);
-  glBindBuffer(GL_ARRAY_BUFFER, vboId);
-  glBufferData(GL_ARRAY_BUFFER, 9 * sizeof(float), points, GL_STATIC_DRAW);
-
+  // Create the vertex array.
   GLuint vaoId = 0;
   glGenVertexArrays(1, &vaoId);
   glBindVertexArray(vaoId);
+
+  GLuint vboId[2];
+  glGenBuffers(2, vboId);
+
+  // Create array buffer and bind it to attribute 0 on the vertex array.
+  glBindBuffer(GL_ARRAY_BUFFER, vboId[0]);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
   glEnableVertexAttribArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, vaoId);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+  // Create the color array.
+  glBindBuffer(GL_ARRAY_BUFFER, vboId[1]);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_FALSE, 0, NULL);
+
+  // Delete the vertex buffers. (The vertex array still has reference to it)
+  // glDeleteBuffers(2, vboId);
 
   while (window.isOpen()) {
     sf::Event evt;
@@ -118,10 +183,17 @@ int main() {
     }
 
     // Draw points 0-2 from the currently bound VAO with current in-use shader.
+    glBindVertexArray(vaoId);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
     window.display();
   }
+
+  // Delete the vertex array object.
+  glDeleteVertexArrays(1, &vaoId);
+
+  // Delete the program.
+  glDeleteProgram(programId);
 
   return 0;
 }
