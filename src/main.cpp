@@ -98,7 +98,9 @@ GLuint CreateProgram(std::string vertexShaderSource,
 int main(int argc, char *argv[]) {
   sf::ContextSettings settings(0, 0, 0, 4, 2);
   sf::Window window(sf::VideoMode(DISPLAY_WIDTH, DISPLAY_HEIGHT),
-                    "Core Graphics", sf::Style::Default, settings);
+                    "Core Graphics", sf::Style::Titlebar | sf::Style::Close,
+                    settings);
+  window.setVerticalSyncEnabled(true);
 
   Log(std::move(std::string("OpenGL: ").append(
       reinterpret_cast<const char *>(glGetString(GL_VERSION)))));
@@ -194,6 +196,9 @@ int main(int argc, char *argv[]) {
       if (evt.type == sf::Event::Closed)
         window.close();
     }
+
+    glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     glUseProgram(programId);
     glBindVertexArray(vaoId);
