@@ -1,13 +1,18 @@
 
 #include <iostream>
 
-#include "SFML/Window/Event.hpp"
-#include "SFML/Window/Window.hpp"
+// These includes have to be in this order.
 #include "GL/glew.h"
 #include "SFML/OpenGL.hpp"
 
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
+#include "SFML/Window/Event.hpp"
+#include "SFML/Window/Window.hpp"
+#include "SFML/Graphics/Shader.hpp"
+#include "SFML/Graphics/Texture.hpp"
+#include "SFML/Graphics/Transform.hpp"
+#include "SFML/Graphics/View.hpp"
 
 enum {
   DISPLAY_WIDTH = 800,
@@ -17,30 +22,35 @@ enum {
 const char *kVertexShader =
     "#version 400\n"
     "\n"
-    "layout(location = 0) in vec3 in_Position;\n"
-    "layout(location = 1) in vec3 in_Color;\n"
+    "layout(location = 0) in vec2 in_Position;\n"
+    "layout(location = 1) in vec2 in_TexCoord;\n"
     "\n"
     "uniform mat4 projectionMatrix;\n"
-    "uniform mat4 viewMatrix;\n"
-    "uniform mat4 modelMatrix;\n"
+    "uniform mat4 translationMatrix;\n"
+    "uniform mat4 scaleMatrix;\n"
     "\n"
     "out vec4 VertexColor;\n"
+    "out vec2 TexCoord;\n"
     "\n"
     "void main() {\n"
-    "  VertexColor = vec4(in_Color, 1.0);\n"
+    "  TexCoord = in_TexCoord;\n"
     "  gl_Position = \n"
-    "      projectionMatrix * \n"
-    "      viewMatrix * \n"
-    "      modelMatrix * \n"
-    "      vec4(in_Position, 1.0);\n"
+    "      projectionMatrix * translationMatrix * scaleMatrix * \n"
+    "      vec4(in_Position, 0.0, 1.0);\n"
     "}\n";
 
 const char *kFragmentShader =
     "#version 400\n"
-    "in vec4 VertexColor;\n"
-    "out vec4 frag_colour;\n"
+    "\n"
+    "in vec2 TexCoord;\n"
+    "\n"
+    "uniform sampler2D Sampler;\n"
+    "\n"
+    "out vec4 FragmentColor;\n"
+    "\n"
     "void main () {\n"
-    "  frag_colour = VertexColor;\n"
+    "  FragmentColor = texture(Sampler, TexCoord);\n"
+    //"  FragmentColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
     "}\n";
 
 void Log(std::string msg) {
@@ -110,46 +120,55 @@ int main(int argc, char *argv[]) {
 
   glUseProgram(programId);
 
+  // Load the texture.
+  sf::Texture texture;
+  std::string texturePath(__FILE__);
+  texturePath = texturePath.substr(0, texturePath.find_last_of('\\'));
+  texturePath = texturePath.substr(0, texturePath.find_last_of('\\'));
+  texturePath.append("\\resources\\block_test.png");
+  if (!texture.loadFromFile(texturePath)) {
+    Log("Error loading texture. (" + texturePath + ")");
+    return 1;
+  }
+  sf::Texture::bind(&texture);
+
   // Set up the matrices.
 
-  glm::mat4 projectionMatrix;  // Store the projection matrix
-  glm::mat4 viewMatrix;        // Store the view matrix
-  glm::mat4 modelMatrix;       // Store the model matrix
+  glm::mat4 projectionMatrix;  // Store the projection matrix.
+  glm::mat4 translationMatrix;   // Store the translation matrix.
+  glm::mat4 scaleMatrix;        // Store the view matrix.
 
   // Create our perspective projection matrix.
-  projectionMatrix = glm::perspective(
-      60.0f,
-      static_cast<float>(DISPLAY_WIDTH) / static_cast<float>(DISPLAY_HEIGHT),
-      0.1f, 100.f);
+  projectionMatrix =
+      glm::ortho(0.f, static_cast<float>(DISPLAY_WIDTH),
+                 static_cast<float>(DISPLAY_HEIGHT), 0.f, -1.f, 1.f);
+  translationMatrix = glm::translate(glm::mat4(), glm::vec3(10.0f, 20.0f, 0.0f));
+  scaleMatrix = glm::scale(glm::mat4(), glm::vec3(200.0f, 100.0f, 1.0f));
 
-  // Create our view matrix which will translate us back 5 units.
-  viewMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.f));
-  // Create our model matrix which will halve the size of our model.
-  modelMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
-
-  // Bind the values to the program.
-
-  // Get the location of our projection matrix in the shader.
-  int projectionMatrixLocation =
+  GLint projectionMatrixLocation =
       glGetUniformLocation(programId, "projectionMatrix");
-  // Get the location of our view matrix in the shader.
-  int viewMatrixLocation = glGetUniformLocation(programId, "viewMatrix");
-  // Get the location of our model matrix in the shader.
-  int modelMatrixLocation = glGetUniformLocation(programId, "modelMatrix");
-
-  // Send our projection matrix to the shader.
   glUniformMatrix4fv(projectionMatrixLocation, 1, GL_FALSE,
                      &projectionMatrix[0][0]);
-  // Send our view matrix to the shader
-  glUniformMatrix4fv(viewMatrixLocation, 1, GL_FALSE, &viewMatrix[0][0]);
-  // Send our model matrix to the shader
-  glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &modelMatrix[0][0]);
+
+  GLint translationMatrixId = glGetUniformLocation(programId, "translationMatrix");
+  glUniformMatrix4fv(translationMatrixId, 1, GL_FALSE, &translationMatrix[0][0]);
+
+  GLint scaleMatrixId = glGetUniformLocation(programId, "scaleMatrix");
+  glUniformMatrix4fv(scaleMatrixId, 1, GL_FALSE, &scaleMatrix[0][0]);
 
   // Set up the geometry.
 
-  GLfloat points[] = {0.0f, 0.5f, 0.0f, 0.5f, -0.5f, 0.0f, -0.5f, -0.5f, 0.0f};
-  GLubyte colors[] = {
-      255, 0, 0, 255, 0, 0, 255, 0, 0,
+  GLfloat points[] = {
+    0.0f, 0.0f,
+    1.0f, 0.0f,
+    1.0f, 1.0f,
+    0.0f, 1.0f,
+  };
+  GLfloat texCoords[] = {
+    0.0f, 0.0f,
+    1.0f, 0.0f,
+    1.0f, 1.0f,
+    0.0f, 1.0f,
   };
 
   // Create the vertex array.
@@ -164,16 +183,16 @@ int main(int argc, char *argv[]) {
   glBindBuffer(GL_ARRAY_BUFFER, vboId[0]);
   glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
   glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 
-  // Create the color array.
+  // Create the texture coordinates array.
   glBindBuffer(GL_ARRAY_BUFFER, vboId[1]);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(texCoords), texCoords, GL_STATIC_DRAW);
   glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_FALSE, 0, NULL);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 
   // Delete the vertex buffers. (The vertex array still has reference to it)
-  // glDeleteBuffers(2, vboId);
+  //glDeleteBuffers(2, vboId);
 
   while (window.isOpen()) {
     sf::Event evt;
@@ -182,9 +201,9 @@ int main(int argc, char *argv[]) {
         window.close();
     }
 
-    // Draw points 0-2 from the currently bound VAO with current in-use shader.
+    glUseProgram(programId);
     glBindVertexArray(vaoId);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
     window.display();
   }
