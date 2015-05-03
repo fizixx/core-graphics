@@ -7,6 +7,6 @@ include_directories("${SAGE_SFML_ROOT_DIR}/include")
 include_directories("${SAGE_SFML_ROOT_DIR}/src")
 
 # Make the GLEW headers available.
-include_directories("${GLEW_INCLUDE_PATH}")
+#include_directories("${GLEW_INCLUDE_PATH}")
 # We have to define this to make us link with the GLEW that is in the SFML libs.
-add_definitions("-DGLEW_STATIC")
+#add_definitions("-DGLEW_STATIC")
