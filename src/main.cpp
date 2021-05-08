@@ -1,10 +1,15 @@
 
+#if defined(WIN32)
+#include <windows.h>
+#endif
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
 #include <cstring>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -18,11 +23,21 @@ void GLError() {
   auto error = glGetError();
 
   if (error != GL_NO_ERROR) {
-    std::cerr << "OpenGL error: " << error << '\n';
-    std::exit(1);
+    std::cerr << "OpenGL error: ";
+
+    switch (error) {
+      case GL_INVALID_OPERATION:
+        std::cerr << "Invalid operation.";
+        break;
+
+      default:
+        std::cerr << error << " (" << std::hex << error << ')';
+    }
+    std::cerr << '\n';
 #if defined(WIN32)
     __debugbreak();
 #endif
+    std::exit(1);
   }
 #endif
 }
@@ -37,10 +52,14 @@ layout(location = 2) in vec2 in_tex_coord;
 out vec4 vertex_color;
 out vec2 vertex_tex_coord;
 
+uniform mat4 u_projection_matrix;
+uniform mat4 u_view_matrix;
+uniform mat4 u_model_matrix;
+
 void main() {
-  gl_Position = vec4(in_position, 1.0);
+  gl_Position = u_projection_matrix * u_view_matrix * vec4(in_position, 1.0);
   vertex_color = in_color;
-  vertex_tex_coord = in_position.xy;
+  vertex_tex_coord = in_tex_coord;
 }
 )";
 
@@ -73,7 +92,6 @@ struct Mesh {
 
   ~Mesh() {
     glDeleteVertexArrays(1, &vertex_array_object);
-    GLError();
   }
 };
 
@@ -140,7 +158,7 @@ Texture load_texture(std::string_view path) {
 
   stbi_image_free(image);
 
-  return {};
+  return result;
 }
 
 GLuint CreateShader(GLenum type, const char* source) {
@@ -193,8 +211,8 @@ void render_mesh(GLuint program, GLuint mode, GLuint mesh, size_t count, GLuint 
   GLError();
 
   if (texture) {
-    glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_2D, texture);
+    // glActiveTexture(GL_TEXTURE0 + 0);
     GLError();
   }
 
@@ -217,9 +235,12 @@ void window_size_changed(GLFWwindow* window, int width, int height) {
   GLError();
 }
 
+#if defined(WIN32)
+int WINAPI WinMain(HINSTANCE, HINSTANCE, PSTR, int) {
+#else
 int main(int argc, char* argv[]) {
-  auto init_res = glfwInit();
-  if (init_res != GLFW_TRUE) {
+#endif
+  if (glfwInit() != GLFW_TRUE) {
     return 1;
   }
 
@@ -233,7 +254,6 @@ int main(int argc, char* argv[]) {
   if (!window) {
     return 1;
   }
-  GLError();
 
   glfwSetWindowSizeCallback(window, window_size_changed);
 
@@ -245,7 +265,6 @@ int main(int argc, char* argv[]) {
     std::cerr << "Could not initialize GLEW.\n";
     return 1;
   }
-  glGetError();
 
   std::cout << "OpenGL version: " << glGetString(GL_VERSION) << '\n';
   std::cout << "GLEW: " << glewGetString(GLEW_VERSION) << '\n';
@@ -274,8 +293,28 @@ int main(int argc, char* argv[]) {
 
   auto mesh = create_mesh(vertices, sizeof(vertices) / sizeof(Vertex));
 
-  auto texture = load_texture("/home/tilo/code/core-graphics/resources/block_test.png");
+  // auto texture = load_texture("/home/tilo/code/core-graphics/resources/block_test.png");
+  auto texture = load_texture(R"(C:\Code\core-graphics\resources\block_test.png)");
   glBindTexture(GL_TEXTURE_2D, texture.texture_id);
+  GLError();
+
+  GLint projection_matrix_location = glGetUniformLocation(programId, "u_projection_matrix");
+  GLError();
+  GLint view_matrix_location = glGetUniformLocation(programId, "u_view_matrix");
+  GLError();
+  GLint model_matrix_location = glGetUniformLocation(programId, "u_model_matrix");
+
+  // glm::mat4 projection{1.0f};
+  glm::mat4 projection = glm::perspective(60.0f, (float)DISPLAY_WIDTH / (float)DISPLAY_HEIGHT, 0.01f, 100.0f);
+  glm::mat4 view{1.0f};
+  view = glm::lookAt(glm::vec3{0.0f, 0.0f, -0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
+  glm::mat4 model{1.0f};
+
+  glUniformMatrix4fv(projection_matrix_location, 1, GL_FALSE, glm::value_ptr(projection));
+  GLError();
+  glUniformMatrix4fv(view_matrix_location, 1, GL_FALSE, glm::value_ptr(view));
+  GLError();
+  glUniformMatrix4fv(model_matrix_location, 1, GL_FALSE, glm::value_ptr(model));
   GLError();
 
   while (!glfwWindowShouldClose(window)) {
@@ -294,6 +333,7 @@ int main(int argc, char* argv[]) {
   glDeleteProgram(programId);
 
   glfwDestroyWindow(window);
+
   glfwTerminate();
 
   return 0;
